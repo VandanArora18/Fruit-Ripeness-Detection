@@ -1,12 +1,7 @@
 import os
 from pathlib import Path
-
 import cv2
 import numpy as np
-
-# ─────────────────────────────────────────
-# PATHS
-# ─────────────────────────────────────────
 SEGMENTED_DIR = r"D:\RL\segmented"
 CLAHE_DIR     = r"D:\RL\clahe_preprocessed"
 
@@ -17,24 +12,19 @@ CLASSES = [
     "Stage_3 (Ripe)",
 ]
 
-# ─────────────────────────────────────────
-# CREATE OUTPUT FOLDERS
-# ─────────────────────────────────────────
 for cls in CLASSES:
     os.makedirs(os.path.join(CLAHE_DIR, cls), exist_ok=True)
 
-# ─────────────────────────────────────────
-# CLAHE SETUP
-# ─────────────────────────────────────────
 clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-
+#clip limit - Threshold to prevent over-amplifying noise in homogeneous areas.
+#Divides the image into an 8x8 grid and applies histogram equalization to each tile. The results are then combined using bilinear interpolation to eliminate artificially induced boundaries.
 def apply_clahe(image):
     """
     Apply CLAHE on L channel in LAB color space.
     """
-    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    l_clahe = clahe.apply(l)
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)#Converts image from BGR to LAB color space.
+    l, a, b = cv2.split(lab)#Splits into L (Lightness/Brightness), A (Green–Red), and B (Blue–Yellow) channels.
+    l_clahe = clahe.apply(l)#Applies CLAHE only to the L channel (so we enhance brightness contrast without altering fruit color)
     lab_clahe = cv2.merge((l_clahe, a, b))
     result = cv2.cvtColor(lab_clahe, cv2.COLOR_LAB2BGR)
     return result
@@ -46,13 +36,9 @@ def extra_preprocess(image):
     - Optional sharpening
     Output remains uint8 BGR, 224x224 (Swin input size).
     """
-    # Ensure correct size
-    image = cv2.resize(image, (224, 224))
+    image = cv2.resize(image, (224, 224))#Ensures standard input dimensions
 
-    # Light blur
-    blurred = cv2.GaussianBlur(image, (3, 3), 0)
-
-    # Sharpen (unsharp mask style)
+    blurred = cv2.GaussianBlur(image, (3, 3), 0)#Gaussian blur to smooth out high-frequency noise generated during contrast enhancement.
     kernel = np.array([
         [ 0, -1,  0],
         [-1,  5, -1],
@@ -62,9 +48,6 @@ def extra_preprocess(image):
 
     return sharpened
 
-# ─────────────────────────────────────────
-# MAIN PROCESS
-# ─────────────────────────────────────────
 def process_clahe():
     total_processed = 0
     total_skipped   = 0
@@ -98,7 +81,6 @@ def process_clahe():
             # Step 1: CLAHE
             clahe_img = apply_clahe(img)
 
-            # Step 2: extra preprocessing
             final_img = extra_preprocess(clahe_img)
 
             # Save
@@ -111,7 +93,7 @@ def process_clahe():
             print(f"  [{idx}/{len(images)}] ✅ {fname} → {outname}")
 
     print("\n" + "=" * 60)
-    print("✅ Phase 2 (CLAHE + preprocessing) complete.")
+    print("Phase 2 (CLAHE + preprocessing) complete.")
     print(f"   Processed : {total_processed} images")
     print(f"   Skipped   : {total_skipped} images")
     print(f"   Saved to  : {CLAHE_DIR}")
@@ -119,7 +101,7 @@ def process_clahe():
 
 
 def verify_output():
-    print("\n📁 CLAHE-preprocessed dataset structure:")
+    print("\nCLAHE-preprocessed dataset structure:")
     print("=" * 60)
     total = 0
     for cls in CLASSES:
@@ -128,10 +110,10 @@ def verify_output():
             f for f in os.listdir(cls_dir)
             if f.lower().endswith((".jpg", ".jpeg", ".png"))
         ])
-        print(f"  📂 {cls}/  →  {count} images")
+        print(f"  {cls}/  →  {count} images")
         total += count
     print("=" * 60)
-    print(f"  ✅ Total CLAHE-preprocessed images: {total}")
+    print(f"  Total CLAHE-preprocessed images: {total}")
 
 
 if __name__ == "__main__":
